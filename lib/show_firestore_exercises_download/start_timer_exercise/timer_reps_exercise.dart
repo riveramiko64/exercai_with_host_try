@@ -32,6 +32,9 @@ class _TimerRepsExerciseState extends State<TimerRepsExercise> {
   late List<Step> _steps;
   int _totalExerciseTime = 0;
   bool _initialDataLoaded = false;
+  List<int> _baseRepsConcat = [];
+  List<double> _totalBurnCalRep = [];
+
 
   @override
   void initState() {
@@ -40,6 +43,7 @@ class _TimerRepsExerciseState extends State<TimerRepsExercise> {
     _steps = _createSteps();
     _secondsRemaining = _steps[_currentStepIndex].duration;
     _currentCount = 0;
+    _baseRepsConcat = List.filled(widget.setValues.length, 0);
 
     _loadTotalExerciseTime().then((_) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -58,16 +62,100 @@ class _TimerRepsExerciseState extends State<TimerRepsExercise> {
     return steps;
   }
 
+
+  Future<void> _saveTotalBurnCalRep(int setIndex) async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    double setCalories = (_baseRepsConcat[setIndex] as num).toDouble() *
+        (widget.exercise['burnCalperRep']?.toDouble() ?? 0.0);
+
+    DocumentReference exerciseRef = FirebaseFirestore.instance
+        .collection('Users')
+        .doc(user.email)
+        .collection('UserExercises')
+        .doc(widget.exercise['name'].toString());
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      DocumentSnapshot snapshot = await transaction.get(exerciseRef);
+
+      List<dynamic> totalBurnCalRep = [];
+
+      if (!snapshot.exists || snapshot.data() == null || !(snapshot.data() as Map<String, dynamic>).containsKey('TotalBurnCalRep')) {
+        // Initialize the document with an empty TotalBurnCalRep array
+        transaction.set(exerciseRef, {
+          'TotalBurnCalRep': [],
+          'FinalTotalBurnCalRep': 0.0,
+          'burnCalperRep': widget.exercise['burnCalperRep']?.toDouble() ?? 0.0,
+          'lastUpdated': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      } else {
+        totalBurnCalRep = List.from((snapshot.data() as Map<String, dynamic>)['TotalBurnCalRep'] ?? []);
+      }
+
+      // Append new value, even if it's a duplicate
+      totalBurnCalRep.add(setCalories);
+
+      transaction.update(exerciseRef, {
+        'TotalBurnCalRep': totalBurnCalRep,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+    });
+
+    print("Saved TotalBurnCalRep[$setIndex]: $setCalories kcal");
+
+    // Update the final total burned calories
+    await _updateFinalTotalBurnCalRep();
+  }
+
+
+  Future<void> _updateFinalTotalBurnCalRep() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    DocumentReference exerciseRef = FirebaseFirestore.instance
+        .collection('Users')
+        .doc(user.email)
+        .collection('UserExercises')
+        .doc(widget.exercise['name'].toString());
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      DocumentSnapshot snapshot = await transaction.get(exerciseRef);
+
+      if (snapshot.exists) {
+        List<dynamic> totalBurnCalRep = snapshot['TotalBurnCalRep'] as List<dynamic>? ?? [];
+
+        // Calculate sum of all values in TotalBurnCalRep
+        double finalTotalBurnCalRep = totalBurnCalRep.fold(0.0, (sum, val) => sum + (val as num).toDouble());
+
+        // Update Firestore document with the final sum
+        transaction.update(exerciseRef, {
+          'FinalTotalBurnCalRep': finalTotalBurnCalRep,
+          'lastUpdated': FieldValue.serverTimestamp(),
+        });
+
+        print("Updated FinalTotalBurnCalRep: $finalTotalBurnCalRep kcal");
+      }
+    });
+  }
+
+
+
+
+
+
+
+
   Future<void> _loadTotalExerciseTime() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Load total time from the new collection `UserExerciseTimes`
+    // Load total time from the new collection UserExerciseTimes
     DocumentSnapshot doc = await FirebaseFirestore.instance
         .collection('Users')
         .doc(user.email)
         .collection('UserExerciseTimes')
-        .doc(widget.exercise['id'].toString())
+        .doc(widget.exercise['name'].toString())
         .get();
 
     if (doc.exists) {
@@ -82,12 +170,12 @@ class _TimerRepsExerciseState extends State<TimerRepsExercise> {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Save total time to the new collection `UserExerciseTimes`
+    // Save total time to the new collection UserExerciseTimes
     await FirebaseFirestore.instance
         .collection('Users')
         .doc(user.email)
         .collection('UserExerciseTimes')
-        .doc(widget.exercise['id'].toString())
+        .doc(widget.exercise['name'].toString())
         .set({
       'exerciseId': widget.exercise['id'],
       'exerciseName': widget.exercise['name'],
@@ -149,7 +237,7 @@ class _TimerRepsExerciseState extends State<TimerRepsExercise> {
           .collection('Users')
           .doc(user.email)
           .collection('UserExercises')
-          .doc(widget.exercise['id'].toString())
+          .doc(widget.exercise['name'].toString())
           .update({'completed': true, 'lastCompleted': FieldValue.serverTimestamp()});
     } catch (e) {
       print('Error marking exercise as completed: $e');
@@ -220,6 +308,8 @@ class _TimerRepsExerciseState extends State<TimerRepsExercise> {
   Widget build(BuildContext context) {
     final currentStep = _steps[_currentStepIndex];
     final setNumber = (_currentStepIndex ~/ 2) + 1;
+    final isRestAfterSet = currentStep.type == StepType.rest && _currentStepIndex > 0;
+    final isLastRest = isRestAfterSet && _currentStepIndex == _steps.length - 1;
 
     final progress = currentStep.type == StepType.set && widget.isRepBased
         ? 0.0
@@ -235,12 +325,12 @@ class _TimerRepsExerciseState extends State<TimerRepsExercise> {
         children: [
           Image.network(
             widget.exercise['gifUrl'] ?? '',
-            height: 200,
+            height: 180,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) =>
             const Icon(Icons.error_outline, size: 100),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           Text(
             currentStep.type == StepType.set
                 ? 'Set $setNumber of ${widget.setValues.length}'
@@ -256,7 +346,7 @@ class _TimerRepsExerciseState extends State<TimerRepsExercise> {
                 : '$_secondsRemaining Seconds Rest',
             style: const TextStyle(fontSize: 18),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           Stack(
             alignment: Alignment.center,
             children: [
@@ -288,36 +378,86 @@ class _TimerRepsExerciseState extends State<TimerRepsExercise> {
             ],
           ),
           const SizedBox(height: 40),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.fast_rewind),
-                iconSize: 40,
-                onPressed: _currentStepIndex > 0 ? _rewindStep : null,
-              ),
-              IconButton(
-                icon: const Icon(Icons.replay),
-                iconSize: 40,
-                onPressed: _resetTimer,
-              ),
-              const SizedBox(width: 30),
-              IconButton(
-                icon: Icon(_isRunning ? Icons.pause : Icons.play_arrow),
-                iconSize: 50,
-                onPressed: () => _isRunning ? _stopTimer() : _startTimer(),
-              ),
-              const SizedBox(width: 30),
-              IconButton(
-                icon: const Icon(Icons.double_arrow),
-                iconSize: 40,
-                onPressed: _skipForward,
-              ),
-            ],
-          ),
+         // if (!isLastRest) // Hide icon buttons during the last rest para sa last button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.fast_rewind),
+                  iconSize: 40,
+                  onPressed: _currentStepIndex > 0 ? _rewindStep : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.replay),
+                  iconSize: 40,
+                  onPressed: _resetTimer,
+                ),
+                const SizedBox(width: 30),
+                IconButton(
+                  icon: Icon(_isRunning ? Icons.pause : Icons.play_arrow),
+                  iconSize: 50,
+                  onPressed: () => _isRunning ? _stopTimer() : _startTimer(),
+                ),
+                const SizedBox(width: 30),
+                IconButton(
+                  icon: const Icon(Icons.double_arrow),
+                  iconSize: 40,
+                  onPressed: _skipForward,
+                ),
+              ],
+            ),
+          if (isRestAfterSet)
+            Column(
+              children: [
+                Text(
+                  'Calories Burnt in Set: ${_calculateCurrentSetCalories(setNumber - 1).toStringAsFixed(2)} kcal',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+
+                // Show TextField only for Rep-Based exercises
+                if (widget.isRepBased)
+                  TextField(
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(labelText: 'Enter reps for this set'),
+                    onChanged: (value) {
+                      setState(() {
+                        _baseRepsConcat[setNumber - 1] = int.tryParse(value) ?? 0;
+                      });
+                    },
+                  ),
+
+                ElevatedButton(
+                  onPressed: () {
+                    double burnedCalories = _calculateCurrentSetCalories(setNumber - 1);
+
+                    // Save the burned calories in Firestore
+                    _saveTotalBurnCalRep(setNumber - 1);
+
+                    // Add to the local list of TotalBurnCalRep
+                    setState(() {
+                      _totalBurnCalRep.add(burnedCalories);
+                    });
+
+                    print("TotalBurnCalRep updated: $_totalBurnCalRep");
+
+                    _skipForward();
+                  },
+
+
+                  child: Text('Confirm & Proceed'),
+                ),
+              ],
+            ),
+
         ],
       ),
     );
+  }
+  double _calculateCurrentSetCalories(int setIndex) {
+    if (widget.isRepBased) {
+      return (_baseRepsConcat[setIndex] * (widget.exercise['burnCalperRep']?.toDouble() ?? 0.0)).toDouble();
+    }
+    return (widget.setValues[setIndex] * (widget.exercise['burnCalperSec']?.toDouble() ?? 0.0)).toDouble();
   }
 }
 

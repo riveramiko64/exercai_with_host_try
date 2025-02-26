@@ -21,10 +21,7 @@ class _HomePagePersonalSettingState extends State<HomePagePersonalSetting> {
     return Scaffold(
       backgroundColor: AppColor.backgroundgrey,
       appBar: AppBar(
-        leading: Icon(
-          Icons.arrow_left,
-          color: AppColor.yellowtext,
-        ),
+
         title: Text('Password Settings',
             style: TextStyle(
                 color: AppColor.primary, fontWeight: FontWeight.bold)),

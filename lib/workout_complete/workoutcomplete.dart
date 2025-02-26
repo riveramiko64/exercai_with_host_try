@@ -77,37 +77,6 @@ class _CompleteWorkoutState extends State<CompleteWorkout> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white, // Background color
-                      borderRadius: BorderRadius.circular(12), // Rounded corners
-                    ),// White background for the row
-                    padding: const EdgeInsets.all(8), // Add padding around the row content
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.directions_run_rounded, color: Colors.black, size: 16),
-                        SizedBox(width: 4),
-                        Text(
-                          '10-15 Repetitions',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 15,
-                          ),
-                        ),
-                        SizedBox(width: 16),
-                        Icon(Icons.local_fire_department, color: Colors.black, size: 16),
-                        SizedBox(width: 4),
-                        Text(
-                          '5-7 Kcal',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),

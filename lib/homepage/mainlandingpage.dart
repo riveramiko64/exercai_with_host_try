@@ -40,28 +40,34 @@ class _MainLandingPageState extends State<MainLandingPage> {
         //automaticallyImplyLeading: false, // Remove back button
         elevation: 0,
         title: //const Text('Hi, User', style: TextStyle(color: AppColor.purpletext, fontSize: 25, fontWeight: FontWeight.bold),),
-                FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                  future: getUserDetails(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return CircularProgressIndicator();
-                    } else if (snapshot.hasError) {
-                      return Text("Error fetching name", style: TextStyle(color: Colors.white));
-                    } else if (!snapshot.hasData || !snapshot.data!.exists) {
-                      return Text("Hi, User",
-                          style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold, color: AppColor.primary));
-                    }
+        StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance
+              .collection('Users')
+              .doc(currentUser?.email)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return CircularProgressIndicator();
+            } else if (snapshot.hasError) {
+              return Text("Error fetching name", style: TextStyle(color: Colors.white));
+            } else if (!snapshot.hasData || !snapshot.data!.exists) {
+              return Text(
+                "Hi, User",
+                style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold, color: AppColor.primary),
+              );
+            }
 
-                    // Extract user's first name
-                    Map<String, dynamic>? userData = snapshot.data!.data();
-                    String firstName = userData?['firstname'] ?? 'User';
+            // Extract user's first name in real-time
+            Map<String, dynamic>? userData = snapshot.data!.data();
+            String firstName = userData?['firstname'] ?? 'User';
 
-                    return Text(
-                      "Hi, $firstName",
-                      style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold, color: AppColor.primary),
-                    );
-                  },
-                ),
+            return Text(
+              "Hi, $firstName",
+              style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold, color: AppColor.primary),
+            );
+          },
+        ),
+
         actions: [
 
           IconButton(

@@ -17,10 +17,7 @@ class _ProfilePageSettingState extends State<ProfilePageSetting> {
     return Scaffold(
       backgroundColor: AppColor.backgroundgrey,
       appBar: AppBar(
-        leading: Icon(
-          Icons.arrow_left,
-          color: AppColor.yellowtext,
-        ),
+
         title: Text('Settings',
             style: TextStyle(
                 color: AppColor.primary, fontWeight: FontWeight.bold)),

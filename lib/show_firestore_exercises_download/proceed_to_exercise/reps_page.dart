@@ -30,11 +30,19 @@ class _RepsPageState extends State<RepsPage> {
         ? widget.exercise['baseSetsReps'] ?? 1
         : widget.exercise['baseSetsSecs'] ?? 1;
 
-    int initialValue = isRepBased
-        ? widget.exercise['baseReps'] ?? 10
-        : widget.exercise['baseSecs'] ?? 30;
+    // Initialize setValues with baseRepsConcat or baseSecConcat if they exist
+    if (isRepBased && widget.exercise['baseRepsConcat'] != null) {
+      setValues = List<int>.from(widget.exercise['baseRepsConcat']);
+    } else if (!isRepBased && widget.exercise['baseSecConcat'] != null) {
+      setValues = List<int>.from(widget.exercise['baseSecConcat']);
+    } else {
+      // Fallback to baseReps or baseSecs if baseRepsConcat/baseSecConcat is null
+      int initialValue = isRepBased
+          ? widget.exercise['baseReps'] ?? 10
+          : widget.exercise['baseSecs'] ?? 30;
+      setValues = List.generate(setCount, (_) => initialValue);
+    }
 
-    setValues = List.generate(setCount, (_) => initialValue);
     restTime = widget.exercise['restTime'] ?? 30;
   }
 
@@ -54,27 +62,49 @@ class _RepsPageState extends State<RepsPage> {
     }
   }
 
+// ... Keep all existing code above ...
+
   Future<void> _saveToFirestore() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     Map<String, dynamic> updateData = {};
+    double totalCalories = 0;
 
+    // CALORIE CALCULATION LOGIC
     if (isRepBased) {
-      updateData['baseSetsReps'] = setCount;
+      // Calculate total calories based on actual reps completed
+      totalCalories = setValues.fold(0.0, (sum, reps) =>
+      sum + (reps * (widget.exercise['burnCalperRep']?.toDouble() ?? 0.0)));
+
+          // Calculate average reps per set
+          final totalReps = setValues.fold(0, (sum, reps) => sum + reps);
+      updateData['baseReps'] = totalReps ~/ setCount;
       updateData['baseRepsConcat'] = setValues;
+      updateData['baseSetsReps'] = setCount;
+
     } else {
-      updateData['baseSetsSecs'] = setCount;
+      // Calculate total calories based on actual time spent
+      int totalSeconds = setValues.fold(0, (sum, secs) => sum + secs);
+      totalCalories = (totalSeconds * (widget.exercise['burnCalperSec']?.toDouble() ?? 0.0)).toDouble();
+
+      // Calculate average seconds per set
+      updateData['baseSecs'] = totalSeconds ~/ setCount;
       updateData['baseSecConcat'] = setValues;
+      updateData['baseSetsSecs'] = setCount;
     }
-    updateData['restTime'] = restTime;
+
+    updateData.addAll({
+      'baseCalories': totalCalories,
+      'restTime': restTime,
+    });
 
     try {
       await FirebaseFirestore.instance
           .collection('Users')
           .doc(user.email)
           .collection('UserExercises')
-          .doc(widget.exercise['id'].toString())
+          .doc(widget.exercise['name'].toString())
           .update(updateData);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,6 +114,10 @@ class _RepsPageState extends State<RepsPage> {
           SnackBar(content: Text('Error saving progress: $e')));
     }
   }
+
+// ... Keep all existing code below ...
+
+
 
   @override
   Widget build(BuildContext context) {

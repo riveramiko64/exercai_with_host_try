@@ -70,8 +70,8 @@ class _MyAppState extends State<MyApp> {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           //home: isLoggedIn ? MainLandingPage() : LoginOrRegister(),
-          //home: LoginOrRegister(),
-          home: ProgressTrackingScreen(),
+          home: LoginOrRegister(),
+          //home: ProgressTrackingScreen(),
           //home: CompleteWorkout(),
           //home: FilterRepsKcal(),
           //home: ExerciseApp(),

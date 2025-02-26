@@ -8,6 +8,7 @@ import 'package:exercai_with_host_try/main.dart';
 import '../login_register_pages/login.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:exercai_with_host_try/progress_tracking/progress_tracking..dart';
 
 
 
@@ -66,10 +67,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: Icon(
-          Icons.arrow_left,
-          color: AppColor.yellowtext,
-        ),
+
         title: Text('My Profile',
             style: TextStyle(
                 color: AppColor.textwhite, fontWeight: FontWeight.bold)),
@@ -174,6 +172,12 @@ class _ProfilePageState extends State<ProfilePage> {
                               context,
                               MaterialPageRoute(
                                   builder: (context) => ProfilePageProfile()));
+                        }),
+                        _optionTile(Icons.person, 'Progress Tracking', () {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => ProgressTrackingScreen()));
                         }),
                         _optionTile(Icons.settings, 'Settings', () {
                           Navigator.push(

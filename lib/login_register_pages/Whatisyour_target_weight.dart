@@ -60,7 +60,7 @@ class _WhatisyourTargetWeightState extends State<WhatisyourTargetWeight> {
   GestureDetector buttonnext(BuildContext context) {
     return GestureDetector(
           onTap: () async{
-            //saveTargetWeightToFirebase();
+            saveTargetWeightToFirebase();
             //await ExerciseRecommendationService().saveRecommendedExercises();
             Navigator.push(context, MaterialPageRoute(builder: (_) => WelcomeScreen()));
           },

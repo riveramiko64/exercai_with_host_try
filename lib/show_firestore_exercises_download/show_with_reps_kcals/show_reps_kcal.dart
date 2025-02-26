@@ -28,7 +28,7 @@ class _ShowRepsKcalState extends State<ShowRepsKcal> {
         .collection('Users')
         .doc(_currentUser.email)
         .collection('UserExercises')
-        .doc(widget.exercise['id'].toString())
+        .doc(widget.exercise['name'].toString())
         .snapshots();
   }
 
@@ -70,6 +70,8 @@ class _ShowRepsKcalState extends State<ShowRepsKcal> {
           final baseReps = exercise['baseReps'] as int?;
           final baseSetsSecs = exercise['baseSetsSecs'] as int?;
           final baseSecs = exercise['baseSecs'] as int?;
+          final baseRepsConcat = exercise['baseRepsConcat'] as List<dynamic>?;
+          final baseSecConcat = exercise['baseSecConcat'] as List<dynamic>?;
 
           final isRepBased = baseSetsReps != null && baseReps != null;
           final isTimeBased = baseSetsSecs != null && baseSecs != null;
@@ -89,7 +91,7 @@ class _ShowRepsKcalState extends State<ShowRepsKcal> {
                     const Icon(Icons.error_outline, size: 100),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
                 Text(
                   'Exercise Details',
                   style: Theme.of(context).textTheme.headlineSmall,
@@ -97,9 +99,9 @@ class _ShowRepsKcalState extends State<ShowRepsKcal> {
                 const Divider(),
                 ListTile(
                   title: Text('Target Muscle: ${exercise['target'] ?? 'N/A'}'),
-                  subtitle: Text('Equipment: ${exercise['equipment'] ?? 'N/A'}'),
+                  //subtitle: Text('Equipment: ${exercise['equipment'] ?? 'N/A'}'),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -119,6 +121,11 @@ class _ShowRepsKcalState extends State<ShowRepsKcal> {
                                 style: const TextStyle(
                                     fontSize: 24, fontWeight: FontWeight.bold),
                               ),
+                              if (baseRepsConcat != null)
+                                Text(
+                                  'Reps per Set: ${baseRepsConcat.join(', ')}',
+                                  style: const TextStyle(fontSize: 14),
+                                ),
                             ],
                           ),
                         if (isTimeBased || isSingleDuration)
@@ -135,6 +142,11 @@ class _ShowRepsKcalState extends State<ShowRepsKcal> {
                                 style: const TextStyle(
                                     fontSize: 24, fontWeight: FontWeight.bold),
                               ),
+                              if (baseSecConcat != null)
+                                Text(
+                                  'Seconds per Set: ${baseSecConcat.join(', ')}',
+                                  style: const TextStyle(fontSize: 14),
+                                ),
                             ],
                           ),
                       ],
@@ -142,16 +154,21 @@ class _ShowRepsKcalState extends State<ShowRepsKcal> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                const Center(child: Text('Estimated Burn Calories', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),)),
                 Center(
                   child: Chip(
                     backgroundColor: Colors.orange[100],
                     label: Text(
-                      '${exercise['baseCalories'] ?? 'N/A'} kcal',
-                      style: const TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold),
+                          () {
+                        final exerciseData = snapshot.data!.data() as Map<String, dynamic>;
+                        final dynamicCalories = exerciseData['baseCalories'] ?? widget.exercise['baseCalories'];
+                        return '${(dynamicCalories is num) ? dynamicCalories.toStringAsFixed(2) : 'N/A'} kcal';
+                      }(),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 20),
                 Text("Instructions:", style: _headerStyle()),
                 const SizedBox(height: 10),

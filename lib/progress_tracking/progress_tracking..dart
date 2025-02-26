@@ -12,6 +12,12 @@ class ProgressTrackingScreen extends StatefulWidget {
 class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
   final User? currentUser = FirebaseAuth.instance.currentUser;
 
+  @override
+  void initState() {
+    super.initState();
+    computeAndStoreTotalCalories(); // Recalculate total calories on startup
+  }
+
   // Fetch user details from Firestore
   Future<DocumentSnapshot<Map<String, dynamic>>> getUserDetails() async {
     return await FirebaseFirestore.instance
@@ -49,6 +55,46 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
     DateTime dateTime = timestamp.toDate();
     return DateFormat('MMM dd, yyyy - hh:mm a').format(dateTime);
   }
+
+  Future<void> computeAndStoreTotalCalories() async {
+    if (currentUser == null) return;
+
+    final userExercisesRef = FirebaseFirestore.instance
+        .collection('Users')
+        .doc(currentUser!.email)
+        .collection('UserExercises');
+
+    final totalCaloriesRef = FirebaseFirestore.instance
+        .collection('Users')
+        .doc(currentUser!.email)
+        .collection('TotalCaloriesExercises')
+        .doc('TotalCaloriesBurnofUser');
+
+    try {
+      QuerySnapshot exercisesSnapshot = await userExercisesRef.get();
+
+      double totalCaloriesBurned = 0;
+
+      for (var doc in exercisesSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        double finalTotalBurnCalRep = (data['FinalTotalBurnCalRep'] ?? 0).toDouble();
+        double totalCalBurnSec = (data['TotalCalBurnSec'] ?? 0).toDouble();
+
+        totalCaloriesBurned += (finalTotalBurnCalRep + totalCalBurnSec);
+      }
+
+      // Store the computed total in Firestore
+      await totalCaloriesRef.set({
+        'TotalCaloriesBurned': totalCaloriesBurned,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+
+      print('Total Calories Burned updated: $totalCaloriesBurned');
+    } catch (e) {
+      print('Error computing total calories: $e');
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -213,19 +259,41 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
                         Container(
                           padding: EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                              color: AppColor.buttonPrimary,
-                              borderRadius: BorderRadius.circular(10)),
+                            color: AppColor.buttonPrimary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           child: Row(
                             children: [
-                              Icon(Icons.local_fire_department,
-                                  color: AppColor.primary, size: 30),
+                              Icon(Icons.local_fire_department, color: AppColor.primary, size: 30),
                               SizedBox(width: 16),
-                              Text('5450 Kcal',
-                                  style: TextStyle(
-                                      color: AppColor.textwhite, fontSize: 18)),
+                              StreamBuilder<DocumentSnapshot>(
+                                stream: FirebaseFirestore.instance
+                                    .collection('Users')
+                                    .doc(currentUser!.email)
+                                    .collection('TotalCaloriesExercises')
+                                    .doc('TotalCaloriesBurnofUser')
+                                    .snapshots(),
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasError) {
+                                    return Text('Error', style: TextStyle(color: Colors.red));
+                                  }
+
+                                  if (snapshot.connectionState == ConnectionState.waiting) {
+                                    return CircularProgressIndicator();
+                                  }
+
+                                  double totalCalories = snapshot.data?.get('TotalCaloriesBurned') ?? 0;
+
+                                  return Text(
+                                    '${totalCalories.toStringAsFixed(2)} Kcal',
+                                    style: TextStyle(color: AppColor.textwhite, fontSize: 18),
+                                  );
+                                },
+                              ),
                             ],
                           ),
                         ),
+
                         SizedBox(height: 16),
                         Text('Total Minutes Exercise (Hours:Min:Sec)',
                             style: TextStyle(
