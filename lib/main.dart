@@ -20,12 +20,19 @@ import 'firebase_options.dart';
 import 'login_register_pages/mainlandingpage.dart';
 import 'auth/login_or_register.dart';
 import 'workout_complete/workoutcomplete.dart';
+import 'local_notification/notification_service.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const MyApp());
+  await Firebase.initializeApp();  // This should be called only once
+  await Permission.contacts.status;  // Ensures permission handler is initialized
+  await Hive.initFlutter();
+  await Hive.openBox('reminders'); // Open Hive box for storing reminders
+  runApp(MyApp());
 }
+
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -41,6 +48,13 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     fetchAndStoreBodyweightExercises(); // Calls only if Firestore is empty
   }*/
+
+  @override
+  void initState() {
+    super.initState();
+    // ✅ Move notification initialization here
+    NotiService().initNotification();
+  }
 
   Future<bool> isUserLoggedIn() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();

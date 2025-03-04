@@ -7,18 +7,21 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'createaccount.dart';
 import 'package:exercai_with_host_try/helper/helper_functions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:exercai_with_host_try/main.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 
 class LoginPage extends StatefulWidget {
   final void Function()? onTap;
   LoginPage({super.key, required this.onTap});
 
-  TextEditingController emailcontroller = TextEditingController();
+  TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
+
 
 
       // Save user token for session management
@@ -45,6 +48,7 @@ class LoginPage extends StatefulWidget {
           // Save session token
           await saveUserSession(userCredential.user!.uid);
 
+
           // Pop loading indicator and navigate
           if (context.mounted) {
             Navigator.pop(context); // Close loading
@@ -58,6 +62,8 @@ class LoginPage extends StatefulWidget {
           displayMessagetoUser(e.message ?? "Login Failed", context);
         }
       }
+
+
 
 
 

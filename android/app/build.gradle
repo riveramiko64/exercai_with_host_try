@@ -8,10 +8,11 @@ plugins {
 
 android {
     namespace = "com.example.exercai_with_host_try"
-    compileSdk = 34
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        coreLibraryDesugaringEnabled true  // ✅ Enable Desugaring
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
@@ -43,3 +44,10 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.3'  // ✅ Add this line
+    implementation 'com.google.firebase:firebase-auth:23.2.0'  // Ensure it's up to date
+    implementation 'com.google.firebase:firebase-core:21.1.1'
+}
+

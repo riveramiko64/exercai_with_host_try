@@ -1,5 +1,6 @@
 import 'package:exercai_with_host_try/components/my_drawer.dart';
 import 'package:exercai_with_host_try/exercise_posture/exerciseposturepage1.dart';
+import 'package:exercai_with_host_try/local_notification/reminder_settings.dart';
 import 'package:exercai_with_host_try/profile_pages/profile_page.dart';
 import 'package:exercai_with_host_try/main.dart';
 import 'package:exercai_with_host_try/progress_tracking/progress_tracking..dart';
@@ -9,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:exercai_with_host_try/local_notification/reminder_settings.dart';
 
 class MainLandingPage extends StatefulWidget {
   const MainLandingPage({super.key});
@@ -100,10 +102,15 @@ class _MainLandingPageState extends State<MainLandingPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   GestureDetector(
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(
+                          builder: (context) => ReminderSettings()));
+                    },
+
                     child: Column(
-                      children: [Icon(Icons.fitness_center,color: AppColor.yellowtext, size: 35),
+                      children: [Icon(Icons.alarm,color: AppColor.yellowtext, size: 35),
                         const SizedBox(height: 8),
-                        Text("Workout", style: const TextStyle(color: Colors.white, fontSize: 14),),
+                        Text("Set Reminder", style: const TextStyle(color: Colors.white, fontSize: 14),),
                       ],
                     ),
                   ),
@@ -151,6 +158,7 @@ class _MainLandingPageState extends State<MainLandingPage> {
                 onTap: (){
                  // Navigator.push(context, MaterialPageRoute(builder: (context)=> FilterExerciseFirestore()));
                   Navigator.push(context, MaterialPageRoute(builder: (context)=> FilterRepsKcal()));
+
                 },
               ),
               const SizedBox(height: 20),

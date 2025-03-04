@@ -121,34 +121,37 @@ class _RepsPageState extends State<RepsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.exercise['name']),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: setCount + 2,
-              itemBuilder: (context, index) {
-                if (index < setCount) {
-                  return _buildSetRow(index);
-                } else if (index == setCount) {
-                  return _buildRestTimeInput();
-                } else {
-                  return _buildSaveButton();
-                }
-              },
-            ),
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.exercise['name']),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context),
           ),
-          _buildStartButton(),
-          const SizedBox(height: 20),
-        ],
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16.0),
+                itemCount: setCount + 2,
+                itemBuilder: (context, index) {
+                  if (index < setCount) {
+                    return _buildSetRow(index);
+                  } else if (index == setCount) {
+                    return _buildRestTimeInput();
+                  } else {
+                    return _buildSaveButton();
+                  }
+                },
+              ),
+            ),
+            _buildStartButton(),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }

@@ -71,10 +71,12 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
         .doc('TotalCaloriesBurnofUser');
 
     try {
+      // Fetch all exercises
       QuerySnapshot exercisesSnapshot = await userExercisesRef.get();
 
       double totalCaloriesBurned = 0;
 
+      // Calculate total calories burned from exercises
       for (var doc in exercisesSnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         double finalTotalBurnCalRep = (data['FinalTotalBurnCalRep'] ?? 0).toDouble();
@@ -83,17 +85,62 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
         totalCaloriesBurned += (finalTotalBurnCalRep + totalCalBurnSec);
       }
 
-      // Store the computed total in Firestore
+      // Fetch the existing FinalTotalCaloriesBurned
+      DocumentSnapshot totalCaloriesDoc = await totalCaloriesRef.get();
+      double existingFinalTotalCaloriesBurned = 0;
+
+      if (totalCaloriesDoc.exists) {
+        existingFinalTotalCaloriesBurned =
+            (totalCaloriesDoc.data() as Map<String, dynamic>)['FinalTotalCaloriesBurned'] ?? 0;
+      }
+
+      // Calculate the new FinalTotalCaloriesBurned
+      double newFinalTotalCaloriesBurned = existingFinalTotalCaloriesBurned + totalCaloriesBurned;
+
+      // Store the updated values in Firestore
       await totalCaloriesRef.set({
-        'TotalCaloriesBurned': totalCaloriesBurned,
+        'TotalCaloriesBurned': totalCaloriesBurned, // Current session's calories
+        'FinalTotalCaloriesBurned': newFinalTotalCaloriesBurned, // Cumulative total
         'lastUpdated': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
       print('Total Calories Burned updated: $totalCaloriesBurned');
+      print('Final Total Calories Burned updated: $newFinalTotalCaloriesBurned');
     } catch (e) {
       print('Error computing total calories: $e');
     }
   }
+
+  // Add this helper function
+  /*Future<int> _calculateTotalExerciseTime(List<QueryDocumentSnapshot> dayDocs) async {
+    int totalExerciseTime = 0;
+
+    for (var dayDoc in dayDocs) {
+      final timesSnapshot = await dayDoc.reference.collection('times').get();
+      for (var timeDoc in timesSnapshot.docs) {
+        totalExerciseTime += (timeDoc['totalExerciseTime'] as int? ?? 0);
+      }
+    }
+
+    return totalExerciseTime;
+  }*/
+
+  Future<int> _calculateTotalExerciseTime(List<QueryDocumentSnapshot> exerciseDocs) async {
+    int totalExerciseTime = 0;
+
+    for (var exerciseDoc in exerciseDocs) {
+      final data = exerciseDoc.data() as Map<String, dynamic>?;
+
+      if (data != null && data.containsKey('totalExerciseTime')) {
+        totalExerciseTime += (data['totalExerciseTime'] as int? ?? 0);
+      }
+    }
+
+    return totalExerciseTime;
+  }
+
+
+
 
 
   @override
@@ -283,15 +330,79 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
                                   }
 
                                   double totalCalories = snapshot.data?.get('TotalCaloriesBurned') ?? 0;
+                                  double finalTotalCalories = snapshot.data?.get('FinalTotalCaloriesBurned') ?? 0;
 
-                                  return Text(
-                                    '${totalCalories.toStringAsFixed(2)} Kcal',
-                                    style: TextStyle(color: AppColor.textwhite, fontSize: 18),
+                                  return Column(
+                                    children: [
+                                      Text(
+                                        'Total Burned Calories: ${finalTotalCalories.toStringAsFixed(2)} Kcal',
+                                        style: TextStyle(color: AppColor.textwhite, fontSize: 16),textAlign: TextAlign.start,
+                                      ),
+                                      Text(
+                                        ' Burned Calories Today: ${totalCalories.toStringAsFixed(2)} Kcal',
+                                        style: TextStyle(color: AppColor.textwhite, fontSize: 16),
+                                      ),
+
+                                    ],
                                   );
                                 },
                               ),
                             ],
                           ),
+                        ),
+
+                        SizedBox(height: 16),
+                        Text('Total Minutes Exercise Today (Hours:Min:Sec)',
+                            style: TextStyle(
+                                color: AppColor.yellowtext,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold)),
+                        SizedBox(height: 8),
+                        // Updated StreamBuilder for Total Exercise Time
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('Users')
+                              .doc(currentUser!.email)
+                              .collection('UserExerciseTimes')
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasError) {
+                              return Center(child: Text('Error: ${snapshot.error}'));
+                            }
+
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Center(child: CircularProgressIndicator());
+                            }
+
+                            return FutureBuilder<int>(
+                              future: _calculateTotalExerciseTime(snapshot.data!.docs),
+                              builder: (context, totalTimeSnapshot) {
+                                if (totalTimeSnapshot.connectionState == ConnectionState.waiting) {
+                                  return CircularProgressIndicator();
+                                }
+
+                                int totalExerciseTime = totalTimeSnapshot.data ?? 0;
+
+                                return Container(
+                                  padding: EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: AppColor.buttonPrimary,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.access_time, color: AppColor.primary, size: 30),
+                                      SizedBox(width: 16),
+                                      Text(
+                                        'Total Time: ${_formatTotalTime(totalExerciseTime)}',
+                                        style: TextStyle(color: AppColor.textwhite, fontSize: 18),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          },
                         ),
 
                         SizedBox(height: 16),
@@ -301,51 +412,18 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold)),
                         SizedBox(height: 8),
-                        StreamBuilder<QuerySnapshot>(
-                          stream: FirebaseFirestore.instance
-                              .collection('Users')
-                              .doc(currentUser!.email)
-                              .collection('UserExerciseTimes')
-                              .snapshots(),
-                          builder: (context, snapshot) {
-                            if (snapshot.hasError) {
-                              return Center(child: Text('Error: ${snapshot.error}'));
-                            }
 
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return Center(child: CircularProgressIndicator());
-                            }
 
-                            int totalExerciseTime = 0;
-                            for (var doc in snapshot.data!.docs) {
-                              totalExerciseTime += (doc['totalExerciseTime'] as int? ?? 0);
-                            }
 
-                            return Container(
-                              padding: EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                  color: AppColor.buttonPrimary,
-                                  borderRadius: BorderRadius.circular(10)),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.access_time,
-                                      color: AppColor.primary, size: 30),
-                                  SizedBox(width: 16),
-                                  Text(
-                                      _formatTotalTime(totalExerciseTime),
-                                      style: TextStyle(
-                                          color: AppColor.textwhite, fontSize: 18)),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
                         SizedBox(height: 16),
-                        Text('Activities',
-                            style: TextStyle(
-                                color: AppColor.yellowtext,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold)),
+                        Text(
+                          'Activities Today',
+                          style: TextStyle(
+                            color: AppColor.yellowtext,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         SizedBox(height: 8),
                         StreamBuilder<QuerySnapshot>(
                           stream: FirebaseFirestore.instance
@@ -362,27 +440,113 @@ class _ProgressTrackingScreenState extends State<ProgressTrackingScreen> {
                               return Center(child: CircularProgressIndicator());
                             }
 
-                            final activities = snapshot.data!.docs;
+                            final exerciseTimes = snapshot.data!.docs;
 
                             return Column(
-                              children: activities.map((doc) {
-                                final exerciseId = doc['exerciseId'] ?? 'N/A';
-                                final exerciseName = doc['exerciseName'] ?? 'Unnamed Exercise';
-                                final lastUpdated = doc['lastUpdated'] as Timestamp?;
-                                final totalExerciseTime = doc['totalExerciseTime'] as int? ?? 0;
+                              children: exerciseTimes.map((doc) {
+                                final data = doc.data() as Map<String, dynamic>?; // Ensure data is a map
+
+                                if (data == null) return SizedBox(); // Handle null case safely
+
+                                final String exerciseName = data['exerciseName'] ?? 'Unknown Exercise';
+                                final int totalTime = data['totalExerciseTime'] ?? 0;
+                                final Timestamp? lastUpdated = data['lastUpdated'] as Timestamp?;
+
+                                // Convert timestamp to readable date format
+                                final String formattedDate = lastUpdated != null
+                                    ? DateFormat('MMM dd, yyyy - hh:mm a').format(lastUpdated.toDate())
+                                    : 'N/A';
 
                                 return ActivityCard(
                                   title: exerciseName,
-                                  exeID: 'ID: $exerciseId',
-                                  duration: _formatTotalTime(totalExerciseTime),
-                                  timeanddate: lastUpdated != null
-                                      ? _formatDateTime(lastUpdated)
-                                      : 'N/A',
+                                  exeID: 'Date: $formattedDate',
+                                  duration: _formatTotalTime(totalTime),
+                                  timeanddate: '',
                                 );
                               }).toList(),
                             );
                           },
                         ),
+
+
+                        SizedBox(height: 16),
+                        Text(
+                          'Recent Activities',
+                          style: TextStyle(
+                            color: AppColor.yellowtext,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        StreamBuilder<DocumentSnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('Users')
+                              .doc(currentUser!.email)
+                              .collection('UserExercises')
+                              .doc('--metadata--')
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasError) {
+                              return Center(child: Text('Error: ${snapshot.error}'));
+                            }
+
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Center(child: CircularProgressIndicator());
+                            }
+
+                            final data = snapshot.data?.data() as Map<String, dynamic>;
+                            final currentDay = (data?['currentDay'] ?? 1);  // Default to 1 if not available
+
+                            return StreamBuilder<QuerySnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection('Users')
+                                  .doc(currentUser!.email)
+                                  .collection('UserExerciseTimes')
+                                  .doc('Day$currentDay') // Use fetched currentDay
+                                  .collection('times')
+                                  .snapshots(),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasError) {
+                                  return Center(child: Text('Error: ${snapshot.error}'));
+                                }
+
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return Center(child: CircularProgressIndicator());
+                                }
+
+                                final exerciseTimes = snapshot.data!.docs;
+
+                                if (exerciseTimes.isEmpty) {
+                                  return Center(child: Text('No recent activities available.'));
+                                }
+
+                                return Column(
+                                  children: exerciseTimes.map((doc) {
+                                    final data = doc.data() as Map<String, dynamic>;
+
+                                    final String exerciseName = data['exerciseName'] ?? 'Unknown Exercise';
+                                    final int totalTime = data['totalExerciseTime'] ?? 0;
+                                    final Timestamp? lastUpdated = data['lastUpdated'] as Timestamp?;
+
+                                    final String formattedDate = lastUpdated != null
+                                        ? DateFormat('MMM dd, yyyy - hh:mm a').format(lastUpdated.toDate())
+                                        : 'N/A';
+
+                                    return ActivityCard(
+                                      title: exerciseName,
+                                      exeID: 'Date: $formattedDate',
+                                      duration: _formatTotalTime(totalTime),
+                                      timeanddate: '',
+                                    );
+                                  }).toList(),
+                                );
+                              },
+                            );
+                          },
+                        )
+
+
                       ],
                     ),
                   ),
@@ -434,13 +598,12 @@ class ActivityCard extends StatelessWidget {
                   Text('$timeanddate',
                       style:
                       TextStyle(color: AppColor.yellowtext, fontSize: 14)),
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Duration: $duration',
                           style:
-                          TextStyle(color: AppColor.yellowtext, fontSize: 14)),
-                      Text(' • ',
-                          style: TextStyle(color: AppColor.primary, fontSize: 14)),
+                          TextStyle(color: AppColor.yellowtext, fontSize: 14,)),
                       Text('$exeID',
                           style:
                           TextStyle(color: AppColor.yellowtext, fontSize: 14)),

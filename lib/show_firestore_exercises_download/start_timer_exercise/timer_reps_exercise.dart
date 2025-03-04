@@ -320,136 +320,151 @@ class _TimerRepsExerciseState extends State<TimerRepsExercise> {
         title: Text(widget.exercise['name'] ?? 'Exercise Timer'),
         centerTitle: true,
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Image.network(
-            widget.exercise['gifUrl'] ?? '',
-            height: 180,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-            const Icon(Icons.error_outline, size: 100),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            currentStep.type == StepType.set
-                ? 'Set $setNumber of ${widget.setValues.length}'
-                : 'Rest $setNumber',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            currentStep.type == StepType.set
-                ? widget.isRepBased
-                ? '${_formatTime(_currentCount)} / ${currentStep.duration} Reps'
-                : '$_secondsRemaining Seconds'
-                : '$_secondsRemaining Seconds Rest',
-            style: const TextStyle(fontSize: 18),
-          ),
-          const SizedBox(height: 10),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 200,
-                height: 200,
-                child: CircularProgressIndicator(
-                  value: progress.clamp(0.0, 1.0),
-                  strokeWidth: 8,
-                  backgroundColor: Colors.grey[300],
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    currentStep.type == StepType.set && widget.isRepBased
-                        ? Colors.grey
-                        : Theme.of(context).primaryColor,
+      body: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.network(
+              widget.exercise['gifUrl'] ?? '',
+              height: 180,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.error_outline, size: 100),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              currentStep.type == StepType.set
+                  ? 'Set $setNumber of ${widget.setValues.length}'
+                  : 'Rest $setNumber',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              currentStep.type == StepType.set
+                  ? widget.isRepBased
+                  ? '${_formatTime(_currentCount)} / ${currentStep.duration} Reps'
+                  : '$_secondsRemaining Seconds'
+                  : '$_secondsRemaining Seconds Rest',
+              style: const TextStyle(fontSize: 18),
+            ),
+            const SizedBox(height: 10),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 200,
+                  height: 200,
+                  child: CircularProgressIndicator(
+                    value: progress.clamp(0.0, 1.0),
+                    strokeWidth: 8,
+                    backgroundColor: Colors.grey[300],
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      currentStep.type == StepType.set && widget.isRepBased
+                          ? Colors.grey
+                          : Theme.of(context).primaryColor,
+                    ),
                   ),
                 ),
-              ),
-              Text(
-                currentStep.type == StepType.set
-                    ? widget.isRepBased
-                    ? _formatTime(_currentCount)
-                    : '$_secondsRemaining'
-                    : '$_secondsRemaining',
-                style: const TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 40),
-         // if (!isLastRest) // Hide icon buttons during the last rest para sa last button
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.fast_rewind),
-                  iconSize: 40,
-                  onPressed: _currentStepIndex > 0 ? _rewindStep : null,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.replay),
-                  iconSize: 40,
-                  onPressed: _resetTimer,
-                ),
-                const SizedBox(width: 30),
-                IconButton(
-                  icon: Icon(_isRunning ? Icons.pause : Icons.play_arrow),
-                  iconSize: 50,
-                  onPressed: () => _isRunning ? _stopTimer() : _startTimer(),
-                ),
-                const SizedBox(width: 30),
-                IconButton(
-                  icon: const Icon(Icons.double_arrow),
-                  iconSize: 40,
-                  onPressed: _skipForward,
-                ),
-              ],
-            ),
-          if (isRestAfterSet)
-            Column(
-              children: [
                 Text(
-                  'Calories Burnt in Set: ${_calculateCurrentSetCalories(setNumber - 1).toStringAsFixed(2)} kcal',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-
-                // Show TextField only for Rep-Based exercises
-                if (widget.isRepBased)
-                  TextField(
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: 'Enter reps for this set'),
-                    onChanged: (value) {
-                      setState(() {
-                        _baseRepsConcat[setNumber - 1] = int.tryParse(value) ?? 0;
-                      });
-                    },
+                  currentStep.type == StepType.set
+                      ? widget.isRepBased
+                      ? _formatTime(_currentCount)
+                      : '$_secondsRemaining'
+                      : '$_secondsRemaining',
+                  style: const TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
                   ),
-
-                ElevatedButton(
-                  onPressed: () {
-                    double burnedCalories = _calculateCurrentSetCalories(setNumber - 1);
-
-                    // Save the burned calories in Firestore
-                    _saveTotalBurnCalRep(setNumber - 1);
-
-                    // Add to the local list of TotalBurnCalRep
-                    setState(() {
-                      _totalBurnCalRep.add(burnedCalories);
-                    });
-
-                    print("TotalBurnCalRep updated: $_totalBurnCalRep");
-
-                    _skipForward();
-                  },
-
-
-                  child: Text('Confirm & Proceed'),
                 ),
               ],
             ),
+            const SizedBox(height: 15),
+           // if (!isLastRest) // Hide icon buttons during the last rest para sa last button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Ensures equal spacing
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.fast_rewind),
+                    iconSize: 40,
+                    onPressed: _currentStepIndex > 0 ? _rewindStep : null,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.replay),
+                    iconSize: 40,
+                    onPressed: _resetTimer,
+                  ),
+                  IconButton(
+                    icon: Icon(_isRunning ? Icons.pause : Icons.play_arrow),
+                    iconSize: 50,
+                    onPressed: () => _isRunning ? _stopTimer() : _startTimer(),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.double_arrow),
+                    iconSize: 40,
+                    onPressed: _skipForward,
+                  ),
+                ],
+              ),
+            if (isRestAfterSet)
+              Column(
+                children: [
+                  const SizedBox(height: 10,),
+                  Text(
+                    'Calories Burnt in Set: ${_calculateCurrentSetCalories(setNumber - 1).toStringAsFixed(2)} kcal',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10,),
+        
+                  // Show TextField only for Rep-Based exercises
+                  if (widget.isRepBased)
+                    SizedBox(
+                      width: 120, // Adjust width as needed
+                      height: 40, // Adjust height as needed
+                      child: TextField(
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        textAlignVertical: TextAlignVertical.center,
+                        decoration: InputDecoration(
+                          hintText: 'Enter reps', // Keeps text inside the field
+                          floatingLabelBehavior: FloatingLabelBehavior.never, // Prevents label from moving up
+                          border: OutlineInputBorder(), // Adds a border for better visibility
+                          contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 10), // Reduces internal padding
+                        ),
+                        style: TextStyle(fontSize: 14), // Smaller text size
+                        onChanged: (value) {
+                          setState(() {
+                            _baseRepsConcat[setNumber - 1] = int.tryParse(value) ?? 0;
+                          });
+                        },
+                      ),
+                    ),
 
-        ],
+                  const SizedBox(height: 15,),
+                  ElevatedButton(
+                    onPressed: () {
+                      double burnedCalories = _calculateCurrentSetCalories(setNumber - 1);
+        
+                      // Save the burned calories in Firestore
+                      _saveTotalBurnCalRep(setNumber - 1);
+        
+                      // Add to the local list of TotalBurnCalRep
+                      setState(() {
+                        _totalBurnCalRep.add(burnedCalories);
+                      });
+        
+                      print("TotalBurnCalRep updated: $_totalBurnCalRep");
+        
+                      _skipForward();
+                    },
+        
+        
+                    child: Text('Confirm & Proceed'),
+                  ),
+                ],
+              ),
+        
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,17 @@
+buildscript {
+    repositories {
+        google()  // ✅ Ensure Google's Maven repo is included
+        mavenCentral()  // ✅ Ensure Maven Central is included
+    }
+    ext.kotlin_version = '2.1.0'  // ✅ Ensure it matches the dependencies remove this if error occured
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0"  // ✅ Use the correct Kotlin version remove this if error occured
+    }
+}
+
 allprojects {
     repositories {
-        google()
+        google()  // ✅ Add repositories to all projects
         mavenCentral()
     }
 }

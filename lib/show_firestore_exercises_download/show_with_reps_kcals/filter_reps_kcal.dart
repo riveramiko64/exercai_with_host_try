@@ -105,8 +105,12 @@ class _FilterRepsKcalState extends State<FilterRepsKcal> {
     super.initState();
     _currentUser = FirebaseAuth.instance.currentUser;
     fetchUserData();
-  }
 
+  }
+  // Add this variable in _FilterRepsKcalState class
+  List<String> _userInjuries = [];
+
+  // Modify fetchUserData to include injuryArea
   Future<void> fetchUserData() async {
     if (_currentUser == null) return;
 
@@ -123,10 +127,17 @@ class _FilterRepsKcalState extends State<FilterRepsKcal> {
         setState(() {
           selectedBMI = userData['bmiCategory'] ?? 'normal';
           selectedDifficulty = userData['workoutLevel'] ?? 'beginner';
+          // Fetch injury areas
+          String injuryArea = userData['injuryArea'] ?? '';
+          _userInjuries = injuryArea.split(', ').where((s) => s.isNotEmpty).toList();
+          // Clear if "none of them" is selected
+          if (_userInjuries.contains('none of them')) {
+            _userInjuries.clear();
+          }
         });
 
-        await _initializeExercisesStream();  // ✅ Load exercises
-        await fetchFinalBurnCalValues();    // ✅ Fetch FinalTotalBurnCalRep values
+        await _initializeExercisesStream();
+        await fetchFinalBurnCalValues();
       }
 
       setState(() => isLoading = false);
@@ -155,10 +166,33 @@ class _FilterRepsKcalState extends State<FilterRepsKcal> {
       }
 
       setState(() {
-        finalBurnCalMap = fetchedData; // ✅ Storing values in a Map
+        finalBurnCalMap = fetchedData;
       });
+
+      // Debug log
+      print('FinalBurnCalMap: $finalBurnCalMap');
     } catch (e) {
       print('Error fetching FinalTotalBurnCalRep values: $e');
+    }
+  }
+
+  Future<void> updateCaloriesBurned(String exerciseName, double caloriesBurned, bool isRepBased) async {
+    if (_currentUser == null) return;
+
+    final userExerciseRef = FirebaseFirestore.instance
+        .collection('Users')
+        .doc(_currentUser!.email)
+        .collection('UserExercises')
+        .doc(exerciseName);
+
+    if (isRepBased) {
+      await userExerciseRef.update({
+        'FinalTotalBurnCalRep': FieldValue.increment(caloriesBurned),
+      });
+    } else {
+      await userExerciseRef.update({
+        'TotalCalBurnSec': FieldValue.increment(caloriesBurned),
+      });
     }
   }
 
@@ -166,18 +200,21 @@ class _FilterRepsKcalState extends State<FilterRepsKcal> {
   Future<void> _initializeExercisesStream() async {
     if (selectedDifficulty == null || selectedBMI == null || _currentUser == null) return;
 
-    _exercisesStream = FirebaseFirestore.instance
-        .collection('Users')
-        .doc(_currentUser!.email)
-        .collection('UserExercises')
-        .where('difficulty', isEqualTo: selectedDifficulty)
-        .where('bmiCategory', isEqualTo: selectedBMI)
-        .where('isActive', isEqualTo: true)
-        .snapshots();
+    setState(() {
+      _exercisesStream = FirebaseFirestore.instance
+          .collection('Users')
+          .doc(_currentUser!.email)
+          .collection('UserExercises')
+          .where('difficulty', isEqualTo: selectedDifficulty)
+          .where('bmiCategory', isEqualTo: selectedBMI)
+          .where('isActive', isEqualTo: true)
+          .snapshots();
+    });
   }
 
-  // Add this function to archive current exercises
-  // Add these new functions for daily exercise management
+
+
+
   Future<void> _archiveCurrentExercises() async {
     if (_currentUser == null) return;
 
@@ -201,7 +238,30 @@ class _FilterRepsKcalState extends State<FilterRepsKcal> {
         .where('isActive', isEqualTo: true)
         .get();
 
-    // Archive to daily collection
+    // Get current exercise times
+    final timesSnapshot = await FirebaseFirestore.instance
+        .collection('Users')
+        .doc(_currentUser!.email)
+        .collection('UserExerciseTimes')
+        .get();
+
+    // Calculate total exercise time for the day
+    int totalExerciseTime = 0;
+    List<String> exercisesPerformed = [];
+
+// Traverse the nested structure to sum up totalExerciseTime
+    for (var dayDoc in timesSnapshot.docs) {
+      final timesCollection = await dayDoc.reference.collection('times').get();
+      for (var timeDoc in timesCollection.docs) {
+        totalExerciseTime += (timeDoc['totalExerciseTime'] as int? ?? 0);
+      }
+    }
+
+    for (var doc in exercisesSnapshot.docs) {
+      exercisesPerformed.add(doc['name']); // Collect exercise names
+    }
+
+    // Archive exercises
     final batch = FirebaseFirestore.instance.batch();
     final dayCollectionRef = FirebaseFirestore.instance
         .collection('Users')
@@ -210,10 +270,22 @@ class _FilterRepsKcalState extends State<FilterRepsKcal> {
         .doc('Day$_currentDay')
         .collection('exercises');
 
+    // Archive exercise times
+    final dayTimesRef = FirebaseFirestore.instance
+        .collection('Users')
+        .doc(_currentUser!.email)
+        .collection('UserExerciseTimes')
+        .doc('Day$_currentDay')
+        .collection('times');
+
     for (var doc in exercisesSnapshot.docs) {
-      final exerciseData = doc.data();
       final newDocRef = dayCollectionRef.doc(doc.id);
-      batch.set(newDocRef, exerciseData);
+      batch.set(newDocRef, doc.data());
+    }
+
+    for (var doc in timesSnapshot.docs) {
+      final newTimeRef = dayTimesRef.doc(doc.id);
+      batch.set(newTimeRef, doc.data());
     }
 
     // Update metadata
@@ -230,7 +302,13 @@ class _FilterRepsKcalState extends State<FilterRepsKcal> {
       batch.update(doc.reference, {'isActive': false});
     }
 
+    // Delete original exercise times
+    for (var doc in timesSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+
     await batch.commit();
+
   }
 
 
@@ -248,6 +326,9 @@ class _FilterRepsKcalState extends State<FilterRepsKcal> {
     }
     await batch.commit();
   }
+
+
+
 
 
   // Modified fetchExercisesFromFirestore to only create new exercises
@@ -323,7 +404,7 @@ class _FilterRepsKcalState extends State<FilterRepsKcal> {
     }
   }
 
-  // Add this function for testing
+  // Update testDailyExerciseRotation
   Future<void> testDailyExerciseRotation() async {
     setState(() => isLoading = true);
     await _archiveCurrentExercises();
@@ -335,174 +416,209 @@ class _FilterRepsKcalState extends State<FilterRepsKcal> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => MainLandingPage()),
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back),
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => MainLandingPage()),
+              );
+            },
+          ),
+          title: Text(
+            selectedDifficulty == null || selectedBMI == null
+                ? "Loading..."
+                : "Exercises for $selectedDifficulty ($selectedBMI)",
+          ),
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: (){testDailyExerciseRotation();
+            /*
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => FilterRepsKcal()), // Replace with the same page
+          );*/
+            },
+          tooltip: 'Test Exercise Rotation',
+          child: Icon(Icons.autorenew),
+        ),
+        body: isLoading
+            ? Center(child: CircularProgressIndicator())
+            : _currentUser == null || selectedDifficulty == null || selectedBMI == null
+            ? Center(child: Text("Please log in and select preferences"))
+            : StreamBuilder<QuerySnapshot>(
+          stream: _exercisesStream,
+          builder: (context, exercisesSnapshot) {
+            if (exercisesSnapshot.hasError) {
+              return Center(child: Text('Error: ${exercisesSnapshot.error}'));
+            }
+
+            if (exercisesSnapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            }
+
+            return StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('Users')
+                  .doc(_currentUser!.email)
+                  .collection('UserExerciseTimes')
+                  .snapshots(),
+              builder: (context, timesSnapshot) {
+                if (timesSnapshot.hasError) {
+                  return Center(child: Text('Error: ${timesSnapshot.error}'));
+                }
+
+                if (timesSnapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                // Create a map of exerciseId to totalExerciseTime
+                final exerciseTimes = {
+                  for (var doc in timesSnapshot.data!.docs)
+                    doc['exerciseId'].toString(): doc['totalExerciseTime'] ?? 0
+                };
+
+                final exercises = exercisesSnapshot.data!.docs.map((doc) {
+                  final exercise = doc.data() as Map<String, dynamic>;
+                  final totalTime = exerciseTimes[exercise['id'].toString()] ?? 0;
+
+                  // DYNAMIC CALORIE UPDATE FOR TIME-BASED
+                  if (exercise['baseSetsSecs'] != null) {
+                    exercise['TotalCalBurnSec'] = totalTime * (exercise['burnCalperSec']?.toDouble() ?? 0.0);
+
+                    // Save the calculated TotalCalBurnSec to Firebase
+                    FirebaseFirestore.instance
+                        .collection('Users')
+                        .doc(_currentUser!.email)
+                        .collection('UserExercises')
+                        .doc(exercise['name'].toString())
+                        .update({'TotalCalBurnSec': exercise['TotalCalBurnSec']});
+                  }
+
+                  return exercise;
+                }).toList();
+
+                return exercises.isEmpty
+                    ? Center(child: Text("No exercises found for your category."))
+                    : ListView(
+                  children: groupExercisesByBodyPart(exercises).entries.map((entry) {
+                    String bodyPart = entry.key;
+                    List<Map<String, dynamic>> exercisesList = entry.value;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                          child: Text(
+                            bodyPart.toUpperCase(), // Display body part title
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blueAccent,
+                            ),
+                          ),
+                        ),
+                        Column(
+                          children: exercisesList.map((exercise) {
+                            final isCompleted = exercise['completed'] == true;
+                            final exerciseId = exercise['id'].toString();
+                            final exerciseName = exercise['name'].toString();
+                            final totalTime = exerciseTimes[exerciseId] ?? 0;
+
+                            // Determine if exercise is Rep-Based or Time-Based
+                            bool isRepBased = exercise['baseSetsReps'] != null && exercise['baseReps'] != null;
+                            bool isTimeBased = exercise['baseSetsSecs'] != null || exercise['baseSecs'] != null;
+
+                            // Use preloaded FinalTotalBurnCalRep values from finalBurnCalMap
+                            double? finalTotalBurnCalRep = finalBurnCalMap[exerciseName];
+                            print('Exercise Name: $exerciseName, FinalTotalBurnCalRep: $finalTotalBurnCalRep');
+
+                            // Choose correct burn calories value
+                            String burnCaloriesDisplay = isRepBased
+                                ? "${finalTotalBurnCalRep?.toStringAsFixed(2) ?? '0.00'} kcal"
+                                : isTimeBased
+                                ? "${exercise['TotalCalBurnSec']?.toStringAsFixed(2) ?? 'N/A'} kcal"
+                                : "N/A";
+
+                            return Card(
+                              margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              elevation: 3,
+                              child: ListTile(
+                                leading: Image.network(
+                                  exercise['gifUrl'],
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.download_for_offline, size: 50),
+                                ),
+                                title: Text(exercise['name']),
+                                subtitle: Text(
+                                    "Target: ${exercise['target']}\n"
+                                        "Equipment: ${exercise['equipment']}\n"
+                                        "Reps/Time: ${getRepsTimeDisplay(exercise)}\n"
+                                        "Burn Calories: $burnCaloriesDisplay\n"
+                                        "Total Time: ${_formatTotalTime(totalTime)}\n"
+                                  //"ID: ${exercise['id']}",
+                                ),
+                                trailing: isCompleted
+                                    ? Icon(Icons.check_circle, color: Colors.green)
+                                    : null,
+                                // Modify the onTap handler in the ListTile
+                                onTap: () {
+                                  String bodyPart = (exercise['bodyPart'] ?? '').toLowerCase();
+                                  if (_userInjuries.contains(bodyPart)) {
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: Text("Injury Warning"),
+                                          content: Text("You have an injury in your $bodyPart. Proceeding may aggravate it. Continue?"),
+                                          actions: <Widget>[
+                                            TextButton(
+                                              child: Text("Cancel"),
+                                              onPressed: () => Navigator.of(context).pop(),
+                                            ),
+                                            TextButton(
+                                              child: Text("Proceed"),
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => ShowRepsKcal(exercise: exercise),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  } else {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ShowRepsKcal(exercise: exercise),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                );
+              },
             );
           },
         ),
-        title: Text(
-          selectedDifficulty == null || selectedBMI == null
-              ? "Loading..."
-              : "Exercises for $selectedDifficulty ($selectedBMI)",
-        ),
-
-
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: testDailyExerciseRotation,
-        tooltip: 'Test Exercise Rotation',
-        child: Icon(Icons.autorenew),
-      ),
-
-      body: isLoading
-          ? Center(child: CircularProgressIndicator())
-          : _currentUser == null || selectedDifficulty == null || selectedBMI == null
-          ? Center(child: Text("Please log in and select preferences"))
-          : StreamBuilder<QuerySnapshot>(
-        stream: _exercisesStream,
-        builder: (context, exercisesSnapshot) {
-          if (exercisesSnapshot.hasError) {
-            return Center(child: Text('Error: ${exercisesSnapshot.error}'));
-          }
-
-          if (exercisesSnapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-
-          return StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('Users')
-                .doc(_currentUser!.email)
-                .collection('UserExerciseTimes')
-                .snapshots(),
-            builder: (context, timesSnapshot) {
-              if (timesSnapshot.hasError) {
-                return Center(child: Text('Error: ${timesSnapshot.error}'));
-              }
-
-              if (timesSnapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              }
-
-              // Create a map of exerciseId to totalExerciseTime
-              final exerciseTimes = {
-                for (var doc in timesSnapshot.data!.docs)
-                  doc['exerciseId'].toString(): doc['totalExerciseTime'] ?? 0
-              };
-
-              final exercises = exercisesSnapshot.data!.docs.map((doc) {
-                final exercise = doc.data() as Map<String, dynamic>;
-                final totalTime = exerciseTimes[exercise['id'].toString()] ?? 0;
-
-                // DYNAMIC CALORIE UPDATE FOR TIME-BASED
-                if (exercise['baseSetsSecs'] != null) {
-                  exercise['TotalCalBurnSec'] = totalTime * (exercise['burnCalperSec']?.toDouble() ?? 0.0);
-
-                  // Save the calculated TotalCalBurnSec to Firebase
-                  FirebaseFirestore.instance
-                      .collection('Users')
-                      .doc(_currentUser!.email)
-                      .collection('UserExercises')
-                      .doc(exercise['name'].toString())
-                      .update({'TotalCalBurnSec': exercise['TotalCalBurnSec']});
-                }
-
-
-                return exercise;
-              }).toList();
-
-              return exercises.isEmpty
-                  ? Center(child: Text("No exercises found for your category."))
-                  : ListView(
-                children: groupExercisesByBodyPart(exercises).entries.map((entry) {
-                  String bodyPart = entry.key;
-                  List<Map<String, dynamic>> exercisesList = entry.value;
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                        child: Text(
-                          bodyPart.toUpperCase(), // Display body part title
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blueAccent,
-                          ),
-                        ),
-                      ),
-                      Column(
-                        children: exercisesList.map((exercise) {
-                          final isCompleted = exercise['completed'] == true;
-                          final exerciseId = exercise['id'].toString();
-                          final exerciseName = exercise['name'].toString();
-                          final totalTime = exerciseTimes[exerciseId] ?? 0;
-
-                          // Determine if exercise is Rep-Based or Time-Based
-                          bool isRepBased = exercise['baseSetsReps'] != null && exercise['baseReps'] != null;
-                          bool isTimeBased = exercise['baseSetsSecs'] != null || exercise['baseSecs'] != null;
-
-                          // Use preloaded FinalTotalBurnCalRep values from finalBurnCalMap
-                          double? finalTotalBurnCalRep = finalBurnCalMap[exerciseName];
-
-                          // Choose correct burn calories value
-                          String burnCaloriesDisplay = isRepBased
-                              ? "${finalTotalBurnCalRep?.toStringAsFixed(2) ?? '0.00'} kcal" //Dating N/A yung 0.00
-                              : isTimeBased
-                              ? "${exercise['TotalCalBurnSec']?.toStringAsFixed(2) ?? 'N/A'} kcal"
-                              : "N/A";
-
-                          return Card(
-                            margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            elevation: 3,
-                            child: ListTile(
-                              leading: Image.network(
-                                exercise['gifUrl'],
-                                width: 60,
-                                height: 60,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.download_for_offline, size: 50),
-                              ),
-                              title: Text(exercise['name']),
-                              subtitle: Text(
-                                "Target: ${exercise['target']}\n"
-                                    "Equipment: ${exercise['equipment']}\n"
-                                    "Reps/Time: ${getRepsTimeDisplay(exercise)}\n"
-                                    "Burn Calories: $burnCaloriesDisplay\n"
-                                    "Total Time: ${_formatTotalTime(totalTime)}\n"
-                                    //"ID: ${exercise['id']}",
-                              ),
-                              trailing: isCompleted
-                                  ? Icon(Icons.check_circle, color: Colors.green)
-                                  : null,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => ShowRepsKcal(exercise: exercise),
-                                  ),
-                                );
-                              },
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              );
-
-            },
-          );
-        },
       ),
     );
   }

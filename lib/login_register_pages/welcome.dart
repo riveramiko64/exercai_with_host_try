@@ -68,15 +68,18 @@ class _WelcomeUserState extends State<WelcomeUser> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColor.backgroundgrey,
-      body: ListView(
-        children: [
-          upperTextSection(),
-          TextFieldSection(),
-          const SizedBox(height: 70),
-          primarybutton(),
-        ],
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: AppColor.backgroundgrey,
+        body: ListView(
+          children: [
+            upperTextSection(),
+            TextFieldSection(),
+            const SizedBox(height: 70),
+            primarybutton(),
+          ],
+        ),
       ),
     );
   }
@@ -414,7 +417,7 @@ class _WelcomeUserState extends State<WelcomeUser> {
           Padding(
             padding: const EdgeInsets.only(left: 20),
             child: Text(
-              "Welcome, User",
+              "Welcome",
               style: TextStyle(
                 color: AppColor.primary,
                 fontSize: 43,
