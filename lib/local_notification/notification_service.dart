@@ -137,4 +137,37 @@ class NotiService {
 
     print('Notification Scheduled on ${scheduledDateTime.toLocal()}');
   }
+
+  Future<void> scheduleRepeatingNotification({
+    required int id,
+    required String title,
+    required String body,
+    required int intervalSeconds,
+  }) async {
+    await notificationsPlugin.periodicallyShow(
+      id,
+      title,
+      body,
+      RepeatInterval.everyMinute, // The lowest interval available is 1 minute
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'reminder_channel_id',
+          'Exercise Reminder',
+          channelDescription: 'Reminds you to return to your exercise',
+          importance: Importance.high,
+          priority: Priority.high,
+          playSound: true,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // ✅ Required parameter added
+    );
+
+    print('Repeating notification scheduled every $intervalSeconds seconds');
+  }
+
+  Future<void> cancelNotification(int id) async {
+    await notificationsPlugin.cancel(id);
+    print('Notification with ID $id cancelled');
+  }
+
 }

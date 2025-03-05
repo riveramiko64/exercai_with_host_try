@@ -327,6 +327,25 @@ class _FilterRepsKcalState extends State<FilterRepsKcal> {
     await batch.commit();
   }
 
+  //local notification for exercise complete
+  Future<bool> areAllExercisesCompleted() async {
+    if (_currentUser == null) return true;
+
+    List<String> targetBodyParts = [
+      'back', 'chest', 'cardio', 'lower arms', 'lower legs', 'neck',
+      'shoulders', 'upper arms', 'upper legs', 'waist'
+    ];
+
+    QuerySnapshot snapshot = await FirebaseFirestore.instance
+        .collection('Users')
+        .doc(_currentUser!.email)
+        .collection('UserExercises')
+        .where('bodyPart', whereIn: targetBodyParts)
+        .get();
+
+    // Check if all exercises in the target body parts are marked as completed
+    return snapshot.docs.every((doc) => doc['completed'] == true);
+  }
 
 
 

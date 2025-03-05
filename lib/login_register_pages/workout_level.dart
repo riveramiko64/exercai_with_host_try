@@ -4,6 +4,9 @@ import 'package:exercai_with_host_try/login_register_pages/injury_selection.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:exercai_with_host_try/main.dart';
+import 'package:hive/hive.dart';
+import '../user_model.dart';
+import 'createaccount.dart';
 
 class WorkoutLevel extends StatefulWidget {
   const WorkoutLevel({super.key});
@@ -30,6 +33,20 @@ class _WorkoutLevelState extends State<WorkoutLevel> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Please select a target area before proceeding.")),
       );
+    }
+  }
+
+  // workout_level.dart
+  void saveWorkoutLevelToHive() async {
+    final userBox = Hive.box<UserModel>('users');
+    final currentUser = userBox.values.firstWhere(
+            (user) => user.email == emailController.text.trim(),
+        orElse: () => UserModel.empty()
+    );
+
+    if (currentUser.email.isNotEmpty) {
+      currentUser.workoutLevel = selectedArea ?? 'beginner';
+      await currentUser.save();
     }
   }
 

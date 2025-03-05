@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:exercai_with_host_try/main.dart';
 import 'package:intl/intl.dart';
+import 'package:hive/hive.dart';
+import '../user_model.dart';
+import 'createaccount.dart';
 
 class WelcomeUser extends StatefulWidget {
   const WelcomeUser({super.key});
@@ -64,6 +67,23 @@ class _WelcomeUserState extends State<WelcomeUser> {
       age--;
     }
     return age;
+  }
+
+  // welcome.dart
+  void _saveUserData() async {
+    final userBox = Hive.box<UserModel>('users');
+    final user = userBox.get(emailController.text.trim());
+
+    if (user != null) {
+      user.gender = dropdowngender ?? 'Male';
+      user.weight = double.tryParse(weightController.text) ?? 0;
+      user.height = double.tryParse(heightController.text) ?? 0;
+      user.age = computeAge(DateFormat('MM-dd-yyyy').parse(dobController.text));
+
+      await user.save();
+      Navigator.pushReplacement(context,
+          MaterialPageRoute(builder: (context) => WhatGoalPage()));
+    }
   }
 
   @override

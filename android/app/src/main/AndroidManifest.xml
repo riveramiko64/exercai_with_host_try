@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.exercai_with_host_try">
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+
     <!-- ============= ADD THESE PERMISSIONS ============= -->
     <!-- Required for Android 13+ to show notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -12,7 +17,11 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- ============= END PERMISSIONS ============= -->
 
-
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 
     <application
         android:label="exercai_with_host_try"

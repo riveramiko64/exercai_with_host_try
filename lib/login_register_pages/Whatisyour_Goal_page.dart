@@ -4,6 +4,10 @@ import 'package:exercai_with_host_try/login_register_pages/injury_selection.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:exercai_with_host_try/main.dart';
+import 'package:hive/hive.dart';
+import '../user_model.dart';
+import 'createaccount.dart';
+import 'welcome.dart';
 
 
 class WhatGoalPage extends StatefulWidget {
@@ -31,6 +35,20 @@ class _WhatGoalPageState extends State<WhatGoalPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Please select a goal before proceeding.")),
       );
+    }
+  }
+
+  // Whatisyour_Goal_page.dart
+  void saveGoalToHive() async {
+    final userBox = Hive.box<UserModel>('users');
+    final currentUser = userBox.values.firstWhere(
+            (user) => user.email == emailController.text.trim(),
+        orElse: () => UserModel.empty()
+    );
+
+    if (currentUser.email.isNotEmpty) {
+      currentUser.goal = selectedGoal ?? 'maintain';
+      await currentUser.save();
     }
   }
 

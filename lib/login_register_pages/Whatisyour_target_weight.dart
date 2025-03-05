@@ -188,7 +188,9 @@ Container TextFieldSection() {
                 SizedBox(
                   height: 30,
                 ),
-                Row(
+
+                //Dipa Tapos Dito alam kona to
+                /*Row(
                   children: [
                     Text("You Will lose ",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 17)),
                     Text("26.6%",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 17,color: Colors.red)),
@@ -212,7 +214,7 @@ Container TextFieldSection() {
                       ),
                     ),
                   ],
-                ),
+                ),*/
                 SizedBox(
                   height: 60,
                 ),

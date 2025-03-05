@@ -8,6 +8,8 @@ import 'login.dart';
 import 'package:exercai_with_host_try/components/my_button.dart';
 import 'package:exercai_with_host_try/main.dart';
 import 'package:exercai_with_host_try/navigator_left_or_right/custom_navigation.dart';
+import 'package:hive/hive.dart';
+import '../user_model.dart';
 
 
 class Createaccount extends StatefulWidget {
@@ -39,38 +41,54 @@ void registerUser(BuildContext context) async {
   if (passwordController.text != confirmpassController.text) {
     Navigator.pop(context);
     displayMessagetoUser("Passwords don't match", context);
-  } else {
-    // Try creating the user
-    try {
-      // Create user
-      UserCredential? userCredential =
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: emailController.text,
-        password: passwordController.text,
+    return;
+  }
+
+  try {
+    // Create user in Firebase Authentication
+    UserCredential? userCredential =
+    await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: emailController.text.trim(),
+      password: passwordController.text,
+    );
+
+    // Create user document in Firestore
+    await createUserDocument(userCredential);
+
+    // Store user in local Hive database
+    final userBox = Hive.box<UserModel>('users');
+    final newUser = UserModel(
+      email: emailController.text.trim(),
+      firstName: fnameController.text.trim(),
+      lastName: lnameController.text.trim(),
+      gender: '',
+      weight: 0,
+      height: 0,
+      age: 0,
+      goal: '',
+      workoutLevel: '',
+    );
+    await userBox.put(emailController.text.trim(), newUser);
+
+    // Pop loading circle
+    if (context.mounted) Navigator.pop(context);
+
+    // Navigate to WelcomeUser screen
+    if (context.mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => WelcomeUser()),
       );
-
-      // Create a user document and add to Firestore
-      await createUserDocument(userCredential);
-
-      // Pop loading circle
-      if (context.mounted) Navigator.pop(context);
-
-      // Navigate to WelcomeUser screen after successful registration
-      if (context.mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => WelcomeUser()),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      // Pop loading circle
-      if (context.mounted) Navigator.pop(context);
-
-      // Display error message to user
-      displayMessagetoUser(e.code, context);
     }
+  } on FirebaseAuthException catch (e) {
+    // Pop loading circle
+    if (context.mounted) Navigator.pop(context);
+
+    // Display error message to user
+    displayMessagetoUser(e.code, context);
   }
 }
+
 
   //create a user document and collect them in firestore
   Future<void> createUserDocument(UserCredential? userCredential) async {

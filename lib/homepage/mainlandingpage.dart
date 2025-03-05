@@ -1,5 +1,6 @@
 import 'package:exercai_with_host_try/components/my_drawer.dart';
 import 'package:exercai_with_host_try/exercise_posture/exerciseposturepage1.dart';
+import 'package:exercai_with_host_try/food_nutrition/nutrition_screen.dart';
 import 'package:exercai_with_host_try/local_notification/reminder_settings.dart';
 import 'package:exercai_with_host_try/profile_pages/profile_page.dart';
 import 'package:exercai_with_host_try/main.dart';
@@ -11,6 +12,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:exercai_with_host_try/local_notification/reminder_settings.dart';
+import 'package:exercai_with_host_try/utils/constant.dart';
+import 'package:exercai_with_host_try/pages/Main_Pages/Exercises_Page.dart';
+import 'package:exercai_with_host_try/pages/arcade_mode_page.dart';
+
 
 class MainLandingPage extends StatefulWidget {
   const MainLandingPage({super.key});
@@ -73,11 +78,19 @@ class _MainLandingPageState extends State<MainLandingPage> {
         actions: [
 
           IconButton(
-            icon: const Icon(Icons.notifications, color: AppColor.purpletext),
-            onPressed: () {},
+            icon: const Icon(Icons.food_bank_outlined, color: AppColor.purpletext,size: 35,),
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context)=> NutritionScreen()));
+            },
           ),
+          /*IconButton(
+            icon: const Icon(Icons.set_meal, color: AppColor.purpletext,size: 35,),
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context)=> LogMealScreen()));
+            },
+          ),*/
           IconButton(
-            icon: const Icon(Icons.person, color: AppColor.purpletext),
+            icon: const Icon(Icons.person, color: AppColor.purpletext,size: 35,),
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (context)=> ProfilePage()));
             },
@@ -142,8 +155,11 @@ class _MainLandingPageState extends State<MainLandingPage> {
                   Colors.white,
                   'assets/gym8.jpg',
                 ),
-                onTap: (){
-                  //Navigator.push(context, MaterialPageRoute(builder: (context)=> ExePosturePage1()));
+                //Posture Page Navigation
+                onTap: () {
+                  Mode = "postureCorrection";
+                  Navigator.pushReplacement(context,
+                      MaterialPageRoute(builder: (context) => Trypage()));
                 },
               ),
               const SizedBox(height: 20),
@@ -170,8 +186,23 @@ class _MainLandingPageState extends State<MainLandingPage> {
                   Colors.white,
                   'assets/gym4.png',
                 ),
-                onTap: (){
-                  //Navigator.push(context, MaterialPageRoute(builder: (context)=> ExePosturePage1()));
+
+                //Arcade Mode navigation
+                onTap: () {
+
+                  int last = peopleBox.get("final", defaultValue: 0);
+
+                  if (last < 1) {
+                    peopleBox.put("squat", 0);
+                    peopleBox.put("legraises", 0);
+                    peopleBox.put("pushup", 0);
+                    peopleBox.put("situp", 0);
+                    peopleBox.put("finalcoloriesburn", 0);
+                    peopleBox.put("final", 5);
+                  }
+
+                  Navigator.pushReplacement(context,
+                      MaterialPageRoute(builder: (context) => ArcadeModePage()));
                 },
               ),
             ],

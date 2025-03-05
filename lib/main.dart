@@ -1,8 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:exercai_with_host_try/auth/login_or_register.dart';
 import 'package:exercai_with_host_try/login_register_pages/Whatisyour_Goal_page.dart';
 import 'package:exercai_with_host_try/login_register_pages/Whatisyour_target_weight.dart';
 import 'package:exercai_with_host_try/login_register_pages/createaccount.dart';
 import 'package:exercai_with_host_try/login_register_pages/login.dart';
+import 'package:exercai_with_host_try/pages/Main_Pages/resttime.dart';
+import 'package:exercai_with_host_try/pages/home.dart';
 import 'package:exercai_with_host_try/profile_pages/profile_page.dart';
 import 'package:exercai_with_host_try/homepage/starter_page.dart';
 import 'package:exercai_with_host_try/login_register_pages/welcome.dart';
@@ -13,6 +16,7 @@ import 'package:exercai_with_host_try/show_firestore_exercises_download/exercise
 import 'package:exercai_with_host_try/show_firestore_exercises_download/show_screen_get_in_firestore/exercise_firestore_list_screen.dart';
 import 'package:exercai_with_host_try/show_firestore_exercises_download/show_screen_get_in_firestore/filter_exercises.dart';
 import 'package:exercai_with_host_try/show_firestore_exercises_download/show_with_reps_kcals/filter_reps_kcal.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,13 +27,28 @@ import 'workout_complete/workoutcomplete.dart';
 import 'local_notification/notification_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'local_notification/notification_service.dart';
+import 'food_nutrition/nutrition_screen.dart';
+import 'user_model.dart';
+import 'food_nutrition/nutrition_screen.dart';
+import 'food_nutrition/food_log.dart';
+import 'package:camera/camera.dart';
+import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
+late List<CameraDescription> cameras;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();  // This should be called only once
   await Permission.contacts.status;  // Ensures permission handler is initialized
   await Hive.initFlutter();
+  await Hive.openBox("Box");
+  cameras = await availableCameras(); // Initialize cameras
   await Hive.openBox('reminders'); // Open Hive box for storing reminders
+  Hive.registerAdapter(UserModelAdapter());
+  Hive.registerAdapter(FoodLogAdapter());
+  await Hive.openBox<UserModel>('users');
+  await Hive.openBox<FoodLog>('foodLogs');
   runApp(MyApp());
 }
 
@@ -41,7 +60,7 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   /*@override
   void initState() {
@@ -52,8 +71,61 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Observe app lifecycle
     // ✅ Move notification initialization here
     NotiService().initNotification();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    if (state == AppLifecycleState.paused) {
+      // App moved to background, check exercise completion
+      bool allCompleted = await areAllExercisesCompleted();
+      if (!allCompleted) {
+        _startReminderNotifications();
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      // App came back to foreground, cancel reminders
+      _cancelReminderNotifications();
+    }
+  }
+
+  Future<bool> areAllExercisesCompleted() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return true;
+
+    List<String> targetBodyParts = [
+      'back', 'chest', 'cardio', 'lower arms', 'lower legs', 'neck',
+      'shoulders', 'upper arms', 'upper legs', 'waist'
+    ];
+
+    QuerySnapshot snapshot = await FirebaseFirestore.instance
+        .collection('Users')
+        .doc(user.email)
+        .collection('UserExercises')
+        .where('bodyPart', whereIn: targetBodyParts)
+        .get();
+
+    return snapshot.docs.every((doc) => doc['completed'] == true);
+  }
+
+  void _startReminderNotifications() async {
+    await NotiService().scheduleRepeatingNotification(
+      id: 1001,
+      title: "Come Back to Finish Your Exercise!",
+      body: "You're making great progress! Get back to your workout now. 💪",
+      intervalSeconds: 60,
+    );
+  }
+
+  void _cancelReminderNotifications() async {
+    await NotiService().cancelNotification(1001);
   }
 
   Future<bool> isUserLoggedIn() async {
@@ -84,7 +156,9 @@ class _MyAppState extends State<MyApp> {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           //home: isLoggedIn ? MainLandingPage() : LoginOrRegister(),
+          //home: RestimeTutorial(),
           home: LoginOrRegister(),
+          //home: MyHome(),
           //home: ProgressTrackingScreen(),
           //home: CompleteWorkout(),
           //home: FilterRepsKcal(),
@@ -97,6 +171,7 @@ class _MyAppState extends State<MyApp> {
             '/login_register_page': (context) => LoginOrRegister(),
             '/home_page': (context) => MainLandingPage(),
             '/profile_page': (context) => ProfilePage(),
+            '/nutrition': (context) => NutritionScreen(),
           },
         );
       },
@@ -105,6 +180,8 @@ class _MyAppState extends State<MyApp> {
 }
 
 class AppColor {
+  static const Color bottonPrimary = Color.fromARGB(255, 51, 51, 51);
+  static const Color bottonSecondary = Color.fromARGB(255, 146, 146, 146);
   static const Color primary = Color(0xFF9575CD);
   static const Color shadow = Color(0xFF5E35B1);
   static const Color solidtext = Color.fromARGB(255, 52, 28, 102);
