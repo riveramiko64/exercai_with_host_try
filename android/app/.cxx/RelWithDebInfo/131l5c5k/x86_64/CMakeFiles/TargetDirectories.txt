@@ -1,0 +1,2 @@
+C:/Users/mikor/StudioProjects/exercai_with_host_try/android/app/.cxx/RelWithDebInfo/131l5c5k/x86_64/CMakeFiles/edit_cache.dir
+C:/Users/mikor/StudioProjects/exercai_with_host_try/android/app/.cxx/RelWithDebInfo/131l5c5k/x86_64/CMakeFiles/rebuild_cache.dir
